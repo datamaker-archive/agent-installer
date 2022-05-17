@@ -192,6 +192,7 @@ class INSTALL_CUDA:
 
         os.system(f'sudo -u agent -H {self.workspace}/.venv/bin/pip install --upgrade pip')
         os.system(f'sudo -u agent -H {self.workspace}/.venv/bin/pip install gunicorn numpy celery')
+        os.system(f'sudo -u agent -H {self.workspace}/.venv/bin/pip install jupyterlab')
         os.system(f'sudo -u agent -H {self.workspace}/.venv/bin/pip install -r requirements.txt')
         
         os.system(f'sudo -u agent -H {self.workspace}/.venv/bin/pip install git+https://gitlab+deploy-token-1015277:StLPQzA-dA46TFHfJQgc@gitlab.com/datamaker/datamaker-sdk.git')
@@ -248,6 +249,18 @@ class INSTALL_CUDA:
         os.system('systemctl restart celery')
         os.system('systemctl enable celery')
 
+    def setting_jupyter(self):
+        os.system(f'mkdir {self.agent_home}')
+        notebook_password = subprocess.check_output(f"printf \"$(echo '{self.agent_password}' | iconv -t utf-8)$(tr -dc a-f0-9 < /dev/urandom | head -c 12)\" | sha1sum | awk -v alg=\"sha1\" -v salt=\"$(tr -dc a-f0-9 < /dev/urandom | head -c 12)\" '{print alg \":\" salt \":\" $1}'", shell=True).decode('utf-8')
+
+        os.system('cat /etc/null > /etc/systemd/system/jupyterlab.service')
+        f1 = open('/etc/systemd/system/jupyterlab.service', 'w')
+        f1.writelines('\n'.join(["[Unit]", "Description=Jupyter Notebook", "\n", "[Service]", "Type=simple", "PIDFile=/run/jupyter.pid", f"ExecStart={self.workspace}/.venv/bin/jupyter-lab --notebook-dir={self.agent_home}/notbooks/ --ip='*' --port=8888 --no-browser --NotebookApp.password='{notebook_password}'", "User=agent", "Group=www-data", "Restart=always", "RestartSec=10", "\n", "[Install]", "WantedBy=multi-user.target"]))
+
+        os.system('systemctl daemon-reload')
+        os.system('systemctl enable jupyterlab')
+        os.system('systemctl start jupyterlab')
+
     def install_all(self):
         self.previous_job()
         self.create_account()
@@ -269,6 +282,7 @@ class INSTALL_CUDA:
         self.set_gunicorn()
         self.setting_nginx()
         self.setting_celery()
+        self.setting_jupyter()
 
         os.system('reboot')
 
