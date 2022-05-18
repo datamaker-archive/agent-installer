@@ -250,7 +250,7 @@ class INSTALL_CUDA:
         os.system('systemctl enable celery')
 
     def setting_jupyter(self):
-        os.system(f'mkdir {self.agent_home}')
+        os.system(f'mkdir {self.agent_home}/notbooks')
         notebook_password = subprocess.check_output(f"set j_random_salt "$(tr -dc a-f0-9 < /dev/urandom | head -c 12)"; printf \"$(echo '{self.agent_password}' | iconv -t utf-8)${j_random_salt}\" | sha1sum | awk -v alg=\"sha1\" -v salt=\"${j_random_salt}\" '{print alg \":\" salt \":\" $1}'; unset j_random_salt", shell=True).decode('utf-8')
 
         os.system('cat /etc/null > /etc/systemd/system/jupyterlab.service')
