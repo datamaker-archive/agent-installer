@@ -226,7 +226,7 @@ class INSTALL_CUDA:
     def setting_nginx(self):
         os.system('cat /dev/null > /etc/nginx/sites-available/agent')
         f = open('/etc/nginx/sites-available/agent', 'w')
-        f.writelines('\n'.join(['server {', '    listen 80;', f'    server_name {self.domain};', '\n', '    location /media  {', '        alias /mnt/media/datamaker-annotator-backend-dev;', '    }', '\n', '    location /static {', f'        alias {self.workspace}/resources/static;', '    }', '\n', '    location /jupyterlab {', f'        proxy_pass http://{self.domain}:8888/jupyterlab;', '        proxy_headers_hash_max_size 512;', '        proxy_headers_hash_bucket_size 128;', '        proxy_set_header X-Real-IP $remote_addr;', '        proxy_set_header Host $host;', '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;', '        proxy_http_version     1.1;', '        proxy_set_header      Upgrade "websocket";', '        proxy_set_header      Connection "Upgrade";', '        proxy_read_timeout    86400;', '        proxy_buffering off;', '    }','\n','    location / {', '        include proxy_params;', '        proxy_pass http://unix:/run/gunicorn.sock;', '    }', '}']))
+        f.writelines('\n'.join(['server {', '    listen 80;', f'    server_name {self.domain};', '\n', '    location /media  {', '        alias /mnt/media/datamaker-annotator-backend-dev;', '    }', '\n', '    location /static {', f'        alias {self.workspace}/resources/static;', '    }', '\n', '    location /jupyter {', f'        proxy_pass http://{self.domain}:8888/jupyter;', '        proxy_headers_hash_max_size 512;', '        proxy_headers_hash_bucket_size 128;', '        proxy_set_header X-Real-IP $remote_addr;', '        proxy_set_header Host $host;', '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;', '        proxy_http_version     1.1;', '        proxy_set_header      Upgrade "websocket";', '        proxy_set_header      Connection "Upgrade";', '        proxy_read_timeout    86400;', '        proxy_buffering off;', '    }','\n','    location / {', '        include proxy_params;', '        proxy_pass http://unix:/run/gunicorn.sock;', '    }', '}']))
         f.close()
         os.system('ln -s /etc/nginx/sites-available/agent /etc/nginx/sites-enabled/agent')
 
@@ -255,7 +255,7 @@ class INSTALL_CUDA:
 
         os.system('cat /etc/null > /etc/systemd/system/jupyterlab.service')
         f1 = open('/etc/systemd/system/jupyterlab.service', 'w')
-        f1.writelines('\n'.join(["[Unit]", "Description=Jupyter Notebook", "\n", "[Service]", "Type=simple", "PIDFile=/run/jupyter.pid", f"ExecStart={self.workspace}/.venv/bin/jupyter-lab --notebook-dir={self.agent_home}/notbooks/ --ip='*' --port=8888 --no-browser --LabApp.base_url=/jupyterlab --NotebookApp.base_url=/jupyterlab --NotebookApp.password='{notebook_password}'", "User=agent", "Group=www-data", "Restart=always", "RestartSec=10", "\n", "[Install]", "WantedBy=multi-user.target"]))
+        f1.writelines('\n'.join(["[Unit]", "Description=Jupyter Notebook", "\n", "[Service]", "Type=simple", "PIDFile=/run/jupyter.pid", f"ExecStart={self.workspace}/.venv/bin/jupyter-lab --notebook-dir={self.agent_home}/notbooks/ --ip='*' --port=8888 --no-browser --LabApp.base_url=/jupyter --NotebookApp.base_url=/jupyter --NotebookApp.password='{notebook_password}'", "User=agent", "Group=www-data", "Restart=always", "RestartSec=10", "\n", "[Install]", "WantedBy=multi-user.target"]))
 
         os.system('systemctl daemon-reload')
         os.system('systemctl enable jupyterlab')
