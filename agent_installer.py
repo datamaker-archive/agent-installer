@@ -251,15 +251,16 @@ class INSTALL_CUDA:
 
     def setting_jupyter(self):
         os.system(f'mkdir {self.agent_home}/notbooks')
-        notebook_password = subprocess.check_output(f"set j_random_salt "$(tr -dc a-f0-9 < /dev/urandom | head -c 12)"; printf \"$(echo '{self.agent_password}' | iconv -t utf-8)${j_random_salt}\" | sha1sum | awk -v alg=\"sha1\" -v salt=\"${j_random_salt}\" '{print alg \":\" salt \":\" $1}'; unset j_random_salt", shell=True).decode('utf-8')
-
+        notebook_password = subprocess.check_output(f"export j_random_salt=\"$(tr -dc a-f0-9 < /dev/urandom | head -c 12)\"; printf \"$(echo '{self.agent_password}' | iconv -t utf-8)$j_random_salt\" | sha1sum | awk -v alg=\"sha1\" -v salt=$j_random_salt '{{print alg \":\" salt \":\" $1}}'; unset j_random_salt", shell=True).decode('utf-8').replace("\n", "")
+        
         os.system('cat /etc/null > /etc/systemd/system/jupyterlab.service')
         f1 = open('/etc/systemd/system/jupyterlab.service', 'w')
         f1.writelines('\n'.join(["[Unit]", "Description=Jupyter Notebook", "\n", "[Service]", "Type=simple", "PIDFile=/run/jupyter.pid", f"ExecStart={self.workspace}/.venv/bin/jupyter-lab --notebook-dir={self.agent_home}/notbooks/ --ip='*' --port=8888 --no-browser --LabApp.base_url=/jupyter --NotebookApp.base_url=/jupyter --NotebookApp.password='{notebook_password}'", "User=agent", "Group=www-data", "Restart=always", "RestartSec=10", "\n", "[Install]", "WantedBy=multi-user.target"]))
+        f1.close()
 
         os.system('systemctl daemon-reload')
-        os.system('systemctl enable jupyterlab')
-        os.system('systemctl start jupyterlab')
+        os.system('systemctl enable jupyterlab.service')
+        os.system('systemctl start jupyterlab.service')
 
     def install_all(self):
         self.previous_job()
