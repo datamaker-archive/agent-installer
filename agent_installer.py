@@ -124,6 +124,7 @@ class INSTALL_CUDA:
                 self.uninstall_cuda()
 
                 os.system('./cuda_11.0.2_450.51.05_linux.run --silent')
+                os.system('nvidia-persistenced --persistence-mode')
 
             elif self.current_os_version_check == '20':
                 os.system('wget https://developer.download.nvidia.com/compute/cuda/11.3.0/local_installers/cuda_11.3.0_465.19.01_linux.run')
@@ -133,6 +134,7 @@ class INSTALL_CUDA:
                 self.uninstall_cuda()
 
                 os.system('./cuda_11.3.0_465.19.01_linux.run --silent')
+                os.system('nvidia-persistenced --persistence-mode')
             else:
                 print('OS version error')
 
