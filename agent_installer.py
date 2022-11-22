@@ -3,43 +3,19 @@ from contextlib import contextmanager
 import os
 import subprocess
 
+from shutil import move
+
 from pathlib import Path
 
 from config_file import config
 import re
 
-#@contextmanager
-#def virtualenv():
-#    """A context manager for executing commands within the context of a
-#    Python virtualenv.
-#
-#    >>> with virtualenv():
-#    ...     print(local.python("-c", "import sys;
-#                               print(sys.executable)"))
-#    ... #...
-#
-#    """
-#    virtualenv_dir = f"{config['workspace']}/datamaker-agent/.venv"
-#
-#    old_path = local.env['PATH']
-#    virtualenv_bin_dir = (Path(virtualenv_dir) / 'bin').resolve()
-#    new_path = '{}:{}'.format(str(virtualenv_bin_dir), old_path)
-#    local.env['PATH'] = new_path
-#    old_python = local.python
-#    new_python = local['python']
-#    local.python = new_python
-#    try:
-#        yield
-#    finally:
-#        local.env['PATH'] = old_path
-#        local.python = old_python
 
-class INSTALL_CUDA:
+class InstallCuda:
     def __init__(self):
-#        self.root_password = config['root_password']
         self.agent_password = config['agent_password']
         self.set_python_version = config['set_python_version']
-        self.agent_home = config['agent_home']
+        self.agent_home = '/home/agent'
         self.workspace = f'{self.agent_home}/datamaker-agent'
         self.domain = config['domain']
 
@@ -49,6 +25,13 @@ class INSTALL_CUDA:
         self.EXPORT_ROOT = config['EXPORT_ROOT']
         self.AGENT_ID = config['AGENT_ID']
         self.TOKEN = config['TOKEN']
+
+        self.git_keyfile_name = config['git_keyfile_name']
+        self.github_ssh_hostname = config['github_ssh_hostname']
+
+        self.ENV_DJANGO_SUPERUSER_EMAIL = config['ENV_DJANGO_SUPERUSER_EMAIL']
+        self.ENV_DJANGO_SUPERUSER_NAME = config['ENV_DJANGO_SUPERUSER_NAME']
+        self.ENV_DJANGO_SUPERUSER_PASSWORD = config['ENV_DJANGO_SUPERUSER_PASSWORD']
 
         self.current_run_level = subprocess.check_output("who -r | awk '{print $2}'", shell=True).decode('utf-8')
         self.current_python_version = subprocess.check_output("python3 --version | awk '{print $2}'", shell=True).decode('utf-8')[0:3]
@@ -60,7 +43,7 @@ class INSTALL_CUDA:
     def previous_job(self):
         os.system('apt update -y')
         os.system('apt install -y python3-pip')
-        os.system('pip3 install plumbum')
+        os.system('pip3 install plumbum shutil')
         __import__('plumbum', fromlist=['local'])
 
     @contextmanager
@@ -101,7 +84,6 @@ class INSTALL_CUDA:
             print('Satisfied Python version')
 
     def uninstall_cuda(self):
-#        os.system('cuda-uninstaller')
         os.system('/usr/local/cuda/bin/cuda-uninstaller')
 
     def uninstall_nvidia(self):
@@ -140,7 +122,24 @@ class INSTALL_CUDA:
 
     def git_pull(self):
         with self.set_workspace():
-            print('git pull')
+            print('add key')
+            os.system('sudo -u agent -H mkdir {self.agent_home}/.ssh')
+            os.system(f'sudo -u agent -H touch {self.agent_home}/.ssh/config')
+
+            move(f'{self.git_keyfile_name}', f'{self.agent_home}/.ssh')
+
+            f = open('~agent/.ssh/config', 'w')
+            f.writelines('\n'.join(
+                [f'Host {self.github_ssh_hostname}',
+                 '     HostName github.com',
+                 '     User git',
+                 f'     IdentityFile ~/.ssh/{self.git_keyfile_name}',
+                 '     IdentitiesOnly yes',
+                 '     Port 22'
+                 ]))
+            f.close()
+
+            print('git clone')
             os.system('sudo -u agent -H git clone https://gitlab+deploy-token-1013375:STuuoVwjRykr_8uNiaXB@gitlab.com/datamaker/datamaker-agent') # ml_agent git clone
             os.system(f'sudo -u agent -H cp {self.workspace}/.env.dist  {self.workspace}/.env')
 
@@ -209,6 +208,12 @@ class INSTALL_CUDA:
         os.system(f"sudo -u agent -H {self.workspace}/.venv/bin/python manage.py constance set EXPORT_ROOT '{self.EXPORT_ROOT}'")
         os.system(f"sudo -u agent -H {self.workspace}/.venv/bin/python manage.py constance set AGENT_ID '{self.AGENT_ID}'")
         os.system(f"sudo -u agent -H {self.workspace}/.venv/bin/python manage.py constance set TOKEN '{self.TOKEN}'")
+
+        os.system(f'export ENV_DJANGO_SUPERUSER_PASSWORD={self.ENV_DJANGO_SUPERUSER_EMAIL}')
+        os.system(f'export ENV_DJANGO_SUPERUSER_PASSWORD={self.ENV_DJANGO_SUPERUSER_NAME}')
+        os.system(f'export ENV_DJANGO_SUPERUSER_PASSWORD={self.ENV_DJANGO_SUPERUSER_PASSWORD}')
+
+        os.system(f'sudo -u agent -H {self.workspace}/.venv/bin/python manage.py createsuperuser --no-input')
 
     def set_gunicorn(self):
         os.system('cat /dev/null > /etc/systemd/system/gunicorn.socket')
@@ -298,6 +303,14 @@ class INSTALL_CUDA:
         print(f'SET workspace - {self.workspace}')
         print('_______________________INFO END_________________________')
 
+        #Check Graphic Card
+        try:
+            chk_graphic_card = subprocess.check_output('lspci -v | grep -i nvidia', shell=True).decode('utf-8')
+            print('Ready Graphic Card')
+        except subprocess.CalledProcessError:
+            print('Please Check if the graphics card is installed.')
+            exit()
+
         #Check support OS
         if self.current_os_version_check == '20' or self.current_os_version_check == '18':
             print('Okay - Support OS')
@@ -369,6 +382,30 @@ class INSTALL_CUDA:
             print('In config_file.py token is wrong... Edit Config_file.py.. Enter the issued token')
             exit()
 
-ins_cuda = INSTALL_CUDA()
+        chk_git_keyfile_exist_yn = os.path.exists(f'{self.git_keyfile_name}')
+
+        if chk_git_keyfile_exist_yn:
+            print('OKAY - exist deploy key')
+        else:
+            print('Not exist deploy key')
+            exit()
+
+        chk_django_superuser_email_p = re.compile("^\w+@\w+\.[a-z]{1,5}$")
+        chk_django_superuser_email_m = chk_django_superuser_email_p(self.ENV_DJANGO_SUPERUSER_EMAIL)
+
+        if chk_django_superuser_email_m:
+            print('Okay - django superuser email')
+        else:
+            print('invaild input email')
+
+        chk_django_superuser_name_p = re.compile("^\w+$")
+        chk_django_superuser_name_m = chk_django_superuser_name_p(self.ENV_DJANGO_SUPERUSER_NAME)
+
+        if chk_django_superuser_name_m:
+            print('Okay - django superuser email')
+        else:
+            print('invaild input email')
+
+ins_cuda = InstallCuda()
 ins_cuda.check_enviroment()
 ins_cuda.install_all()
